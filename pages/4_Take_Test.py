@@ -4,25 +4,29 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from core import ai_engine, db
+from core.auth_ui import require_login
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="Take Test", page_icon="✍️", layout="wide")
+profile = require_login()
 st.title("✍️ Take a Test")
 
+grade = profile["grade"]
 subjects = db.list_subjects()
+subjects = [s for s in subjects if db.list_chapters(s["id"], grade=grade)]
 if not subjects:
-    st.warning("No subjects yet. Upload material first on the **📤 Upload Material** page.")
+    st.warning(f"No chapters yet for Grade {grade}. Upload material first on the **📤 Upload Material** page.")
     st.stop()
 
 subject_names = [s["name"] for s in subjects]
 subj_choice = st.selectbox("Subject", subject_names)
 subject_id = next(s["id"] for s in subjects if s["name"] == subj_choice)
 
-chapters = db.list_chapters(subject_id)
+chapters = db.list_chapters(subject_id, grade=grade)
 if not chapters:
-    st.warning(f"No chapters uploaded yet for {subj_choice}.")
+    st.warning(f"No chapters uploaded yet for {subj_choice} (Grade {grade}).")
     st.stop()
 
 chapter_labels = [c["name"] for c in chapters]

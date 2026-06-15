@@ -21,7 +21,15 @@ CREATE TABLE IF NOT EXISTS chapters (
     summary TEXT,
     source_file TEXT,
     created_at TEXT NOT NULL,
+    grade INTEGER NOT NULL DEFAULT 7,
     FOREIGN KEY (subject_id) REFERENCES subjects(id)
+);
+
+CREATE TABLE IF NOT EXISTS profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    grade INTEGER NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS papers (
@@ -65,6 +73,7 @@ CREATE TABLE IF NOT EXISTS answer_records (
 MIGRATIONS = [
     ("answer_records", "skill_category", "TEXT"),
     ("chapters", "lesson_json", "TEXT"),
+    ("chapters", "grade", "INTEGER NOT NULL DEFAULT 7"),
 ]
 
 
@@ -116,12 +125,12 @@ def list_subjects():
 
 
 # ---------------------------------------------------------------- chapters
-def add_chapter(subject_id, name, summary, source_file):
+def add_chapter(subject_id, name, summary, source_file, grade=7):
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO chapters (subject_id, name, summary, source_file, created_at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (subject_id, name, summary, source_file, now()),
+        "INSERT INTO chapters (subject_id, name, summary, source_file, created_at, grade) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (subject_id, name, summary, source_file, now(), grade),
     )
     conn.commit()
     cid = cur.lastrowid
@@ -129,15 +138,18 @@ def add_chapter(subject_id, name, summary, source_file):
     return cid
 
 
-def list_chapters(subject_id=None):
+def list_chapters(subject_id=None, grade=None):
     conn = get_conn()
+    query = "SELECT * FROM chapters WHERE 1=1"
+    params = []
     if subject_id:
-        rows = conn.execute(
-            "SELECT * FROM chapters WHERE subject_id = ? ORDER BY created_at DESC",
-            (subject_id,),
-        ).fetchall()
-    else:
-        rows = conn.execute("SELECT * FROM chapters ORDER BY created_at DESC").fetchall()
+        query += " AND subject_id = ?"
+        params.append(subject_id)
+    if grade:
+        query += " AND grade = ?"
+        params.append(grade)
+    query += " ORDER BY created_at DESC"
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -154,6 +166,33 @@ def get_chapter_by_name(subject_id, name):
     row = conn.execute(
         "SELECT * FROM chapters WHERE subject_id = ? AND name = ?", (subject_id, name)
     ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+# --------------------------------------------------------------- profiles
+def list_profiles():
+    conn = get_conn()
+    rows = conn.execute("SELECT * FROM profiles ORDER BY created_at").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_profile(name, grade):
+    conn = get_conn()
+    cur = conn.execute(
+        "INSERT INTO profiles (name, grade, created_at) VALUES (?, ?, ?)",
+        (name, grade, now()),
+    )
+    conn.commit()
+    pid = cur.lastrowid
+    conn.close()
+    return pid
+
+
+def get_profile(profile_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM profiles WHERE id = ?", (profile_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
 
@@ -247,54 +286,60 @@ def get_attempt(attempt_id):
     return dict(attempt), [dict(r) for r in records]
 
 
-def get_attempts_for_subject(subject_id):
+def get_attempts_for_subject(subject_id, grade=None):
     conn = get_conn()
-    rows = conn.execute(
-        """
+    query = """
         SELECT a.*, p.title, p.chapter_id, c.name AS chapter_name
         FROM attempts a
         JOIN papers p ON p.id = a.paper_id
         JOIN chapters c ON c.id = p.chapter_id
         WHERE c.subject_id = ?
-        ORDER BY a.created_at
-        """,
-        (subject_id,),
-    ).fetchall()
+        """
+    params = [subject_id]
+    if grade:
+        query += " AND c.grade = ?"
+        params.append(grade)
+    query += " ORDER BY a.created_at"
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def get_topic_performance(subject_id):
+def get_topic_performance(subject_id, grade=None):
     conn = get_conn()
-    rows = conn.execute(
-        """
+    query = """
         SELECT ar.topic, ar.awarded, ar.max_marks, a.created_at
         FROM answer_records ar
         JOIN attempts a ON a.id = ar.attempt_id
         JOIN papers p ON p.id = a.paper_id
         JOIN chapters c ON c.id = p.chapter_id
         WHERE c.subject_id = ? AND ar.topic IS NOT NULL
-        ORDER BY a.created_at
-        """,
-        (subject_id,),
-    ).fetchall()
+        """
+    params = [subject_id]
+    if grade:
+        query += " AND c.grade = ?"
+        params.append(grade)
+    query += " ORDER BY a.created_at"
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def get_skill_category_performance(subject_id):
+def get_skill_category_performance(subject_id, grade=None):
     conn = get_conn()
-    rows = conn.execute(
-        """
+    query = """
         SELECT ar.skill_category, ar.awarded, ar.max_marks, a.created_at
         FROM answer_records ar
         JOIN attempts a ON a.id = ar.attempt_id
         JOIN papers p ON p.id = a.paper_id
         JOIN chapters c ON c.id = p.chapter_id
         WHERE c.subject_id = ? AND ar.skill_category IS NOT NULL AND ar.skill_category != ''
-        ORDER BY a.created_at
-        """,
-        (subject_id,),
-    ).fetchall()
+        """
+    params = [subject_id]
+    if grade:
+        query += " AND c.grade = ?"
+        params.append(grade)
+    query += " ORDER BY a.created_at"
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]

@@ -5,11 +5,14 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from core import ai_engine, db, pdf_utils
+from core.auth import GRADES
+from core.auth_ui import require_login
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="Upload Material", page_icon="📤", layout="wide")
+profile = require_login()
 st.title("📤 Upload Study Material")
 st.caption(
     "Step 1 of the workflow: upload a chapter from a textbook, worksheet or notes. "
@@ -22,7 +25,7 @@ DEFAULT_SUBJECTS = [
 ]
 
 st.markdown("### 1️⃣ What is this material?")
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     subject_choice = st.selectbox("Subject", DEFAULT_SUBJECTS + ["Other (type below)"])
     if subject_choice == "Other (type below)":
@@ -35,6 +38,14 @@ with col2:
         "Chapter / Topic name",
         placeholder="e.g. Chapter 1 - Integers",
         help="Give this material a short name. This is REQUIRED before you can analyze it.",
+    )
+
+with col3:
+    grade = st.selectbox(
+        "Grade / Standard",
+        GRADES,
+        index=GRADES.index(profile["grade"]),
+        help="Which grade is this material for?",
     )
 
 st.markdown("### 2️⃣ Upload the PDF")
@@ -98,7 +109,7 @@ if uploaded:
 
         subject_id = db.get_or_create_subject(subject_name)
         chapter_id = db.add_chapter(
-            subject_id, chapter_name, json.dumps(analysis), uploaded.name
+            subject_id, chapter_name, json.dumps(analysis), uploaded.name, grade=grade
         )
         st.session_state["last_chapter_id"] = chapter_id
 
@@ -110,11 +121,11 @@ if uploaded:
             st.page_link("pages/3_Generate_Test.py", label="📝 Go to Generate Test — create a practice paper", use_container_width=True)
 
 st.divider()
-st.subheader("📚 Previously uploaded chapters")
+st.subheader(f"📚 Previously uploaded chapters — Grade {profile['grade']}")
 subjects = db.list_subjects()
 any_chapters = False
 for subj in subjects:
-    chapters = db.list_chapters(subj["id"])
+    chapters = db.list_chapters(subj["id"], grade=profile["grade"])
     if chapters:
         any_chapters = True
         st.markdown(f"**{subj['name']}**")
@@ -122,4 +133,4 @@ for subj in subjects:
             st.write(f"- {c['name']} (uploaded {c['created_at']}, file: {c['source_file']})")
 
 if not any_chapters:
-    st.caption("Nothing uploaded yet — use the form above to add your first chapter.")
+    st.caption(f"Nothing uploaded yet for Grade {profile['grade']} — use the form above to add your first chapter.")

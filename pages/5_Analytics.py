@@ -4,25 +4,29 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from core import db
+from core.auth_ui import require_login
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="Analytics", page_icon="📊", layout="wide")
+profile = require_login()
 st.title("📊 Performance Analytics")
 
+grade = profile["grade"]
 subjects = db.list_subjects()
+subjects = [s for s in subjects if db.list_chapters(s["id"], grade=grade)]
 if not subjects:
-    st.warning("No subjects yet. Upload material first on the **📤 Upload Material** page.")
+    st.warning(f"No chapters yet for Grade {grade}. Upload material first on the **📤 Upload Material** page.")
     st.stop()
 
 subject_names = [s["name"] for s in subjects]
 subj_choice = st.selectbox("Subject", subject_names)
 subject_id = next(s["id"] for s in subjects if s["name"] == subj_choice)
 
-attempts = db.get_attempts_for_subject(subject_id)
-topic_rows = db.get_topic_performance(subject_id)
-skill_rows = db.get_skill_category_performance(subject_id)
+attempts = db.get_attempts_for_subject(subject_id, grade=grade)
+topic_rows = db.get_topic_performance(subject_id, grade=grade)
+skill_rows = db.get_skill_category_performance(subject_id, grade=grade)
 
 if not attempts:
     st.info("No tests taken yet for this subject. Take a test first.")

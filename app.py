@@ -2,18 +2,21 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from core import db
+from core.auth_ui import require_login
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="StudyBuddy — Exam Prep Dashboard", page_icon="📚", layout="wide")
 
+profile = require_login()
+
 st.title("📚 StudyBuddy — AI Exam Prep Dashboard")
-st.caption("Class 7 · Euro School Whitefield")
+st.caption(f"Grade {profile['grade']} · Euro School Whitefield")
 
 st.markdown(
-    "Welcome! This dashboard helps your son prepare for exams across **any subject** — "
-    "Maths, Science, Social Studies, English, Hindi, Kannada, ICT and more."
+    f"Welcome back, **{profile['name']}**! This dashboard helps you prepare for exams across "
+    "**any subject** — Maths, Science, Social Studies, English, Hindi, Kannada, ICT and more."
 )
 
 st.divider()
@@ -40,16 +43,20 @@ with c4:
 
 st.divider()
 
+grade = profile["grade"]
 subjects = db.list_subjects()
+subjects = [s for s in subjects if db.list_chapters(s["id"], grade=grade)]
 
 if not subjects:
-    st.info("👆 No subjects yet. Click **Upload Material** above to add your first chapter.")
+    st.info(
+        f"👆 No chapters yet for **Grade {grade}**. Click **Upload Material** above to add the first chapter."
+    )
 else:
-    st.markdown("## 📈 Subject Overview")
+    st.markdown(f"## 📈 Subject Overview — Grade {grade}")
     cols = st.columns(len(subjects) if len(subjects) <= 4 else 4)
     for i, subj in enumerate(subjects):
-        chapters = db.list_chapters(subj["id"])
-        attempts = db.get_attempts_for_subject(subj["id"])
+        chapters = db.list_chapters(subj["id"], grade=grade)
+        attempts = db.get_attempts_for_subject(subj["id"], grade=grade)
         avg = round(sum(a["percentage"] for a in attempts) / len(attempts), 1) if attempts else None
         with cols[i % 4]:
             st.metric(
@@ -63,7 +70,7 @@ else:
     st.subheader("🗒️ Recent activity")
     rows = []
     for subj in subjects:
-        for a in db.get_attempts_for_subject(subj["id"]):
+        for a in db.get_attempts_for_subject(subj["id"], grade=grade):
             rows.append(
                 {
                     "Subject": subj["name"],
