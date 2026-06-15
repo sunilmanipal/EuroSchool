@@ -6,16 +6,17 @@ from dotenv import load_dotenv
 
 from core import ai_engine, db
 from core.auth_ui import require_login
+from core.ui import render_page_header
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="Learn", page_icon="🎓", layout="wide")
 profile = require_login()
-st.title("🎓 Learn This Chapter")
-st.caption(
+render_page_header(
+    "🎓 Learn This Chapter",
     "Read through the lesson for each sub-topic before attempting a test — "
-    "explanations, worked examples, common mistakes, and quick self-checks."
+    "explanations, worked examples, common mistakes, and quick self-checks.",
 )
 
 

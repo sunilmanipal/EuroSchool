@@ -5,13 +5,14 @@ from dotenv import load_dotenv
 
 from core import ai_engine, db
 from core.auth_ui import require_login
+from core.ui import render_page_header
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="Take Test", page_icon="✍️", layout="wide")
 profile = require_login()
-st.title("✍️ Take a Test")
+render_page_header("✍️ Take a Test", "Answer each question, then submit for instant AI grading and feedback.")
 
 grade = profile["grade"]
 subjects = db.list_subjects()

@@ -5,13 +5,14 @@ from dotenv import load_dotenv
 
 from core import db
 from core.auth_ui import require_login
+from core.ui import render_page_header
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="Analytics", page_icon="📊", layout="wide")
 profile = require_login()
-st.title("📊 Performance Analytics")
+render_page_header("📊 Performance Analytics", "Track topic-wise mastery, score trends, and predicted exam scores.")
 
 grade = profile["grade"]
 subjects = db.list_subjects()

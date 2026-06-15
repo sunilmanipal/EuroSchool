@@ -5,13 +5,18 @@ from dotenv import load_dotenv
 
 from core import ai_engine, db, question_bank
 from core.auth_ui import require_login
+from core.ui import render_page_header
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="Generate Test", page_icon="📝", layout="wide")
 profile = require_login()
-st.title("📝 Generate a Practice Question Paper")
+render_page_header(
+    "📝 Generate a Practice Question Paper",
+    "Create a fresh, balanced practice paper for any chapter — tuned to difficulty, "
+    "skill mix, and topics that need extra focus.",
+)
 
 grade = profile["grade"]
 subjects = db.list_subjects()

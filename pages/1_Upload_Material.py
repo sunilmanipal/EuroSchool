@@ -7,17 +7,18 @@ from dotenv import load_dotenv
 from core import ai_engine, db, pdf_utils
 from core.auth import GRADES
 from core.auth_ui import require_login
+from core.ui import render_page_header
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="Upload Material", page_icon="📤", layout="wide")
 profile = require_login()
-st.title("📤 Upload Study Material")
-st.caption(
+render_page_header(
+    "📤 Upload Study Material",
     "Step 1 of the workflow: upload a chapter from a textbook, worksheet or notes. "
     "The AI will read it and figure out the topics and question style — then you can "
-    "go to **Learn** or **Generate Test**."
+    "go to <strong>Learn</strong> or <strong>Generate Test</strong>.",
 )
 
 DEFAULT_SUBJECTS = [

@@ -3,44 +3,54 @@ from dotenv import load_dotenv
 
 from core import db
 from core.auth_ui import require_login
+from core.ui import inject_css, render_hero
 
 load_dotenv()
 db.init_db()
 
 st.set_page_config(page_title="StudyBuddy — Exam Prep Dashboard", page_icon="📚", layout="wide")
+inject_css()
 
 profile = require_login()
 
-st.title("📚 StudyBuddy — AI Exam Prep Dashboard")
-st.caption(f"Grade {profile['grade']} · Euro School Whitefield")
-
-st.markdown(
-    f"Welcome back, **{profile['name']}**! This dashboard helps you prepare for exams across "
-    "**any subject** — Maths, Science, Social Studies, English, Hindi, Kannada, ICT and more."
+render_hero(
+    "📚 StudyBuddy — AI Exam Prep Dashboard",
+    f"Welcome back, <strong>{profile['name']}</strong>! Your personal AI tutor for "
+    "Maths, Science, Social Studies, English, Hindi, Kannada, ICT and more.",
+    badge=f"🎓 Grade {profile['grade']} · Euro School Whitefield",
 )
 
-st.divider()
 st.markdown("## 🚀 How it works")
 
 c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.markdown("### 1️⃣ 📤 Upload")
-    st.write("Upload a chapter/exercise PDF. The AI reads it and learns the topics & style.")
-    st.page_link("pages/1_Upload_Material.py", label="Upload Material", use_container_width=True)
-with c2:
-    st.markdown("### 2️⃣ 🎓 Learn")
-    st.write("AI tutor explains each topic with examples, tips, and answers doubts in chat.")
-    st.page_link("pages/2_Learn.py", label="Learn", use_container_width=True)
-with c3:
-    st.markdown("### 3️⃣ 📝✍️ Practice")
-    st.write("AI generates a fresh exam paper, balanced across question types. Take it in-browser.")
-    st.page_link("pages/3_Generate_Test.py", label="Generate Test", use_container_width=True)
-    st.page_link("pages/4_Take_Test.py", label="Take Test", use_container_width=True)
-with c4:
-    st.markdown("### 4️⃣ 📊 Analyze")
-    st.write("See topic-wise mastery, weak areas, score trends, and a predicted exam score.")
-    st.page_link("pages/5_Analytics.py", label="Analytics", use_container_width=True)
+steps = [
+    (c1, "1", "📤", "Upload", "Upload a chapter/exercise PDF. The AI reads it and learns the topics & style.",
+     [("Upload Material", "pages/1_Upload_Material.py")]),
+    (c2, "2", "🎓", "Learn", "AI tutor explains each topic with examples, tips, and answers doubts in chat.",
+     [("Learn", "pages/2_Learn.py")]),
+    (c3, "3", "📝", "Practice", "AI generates a fresh exam paper, balanced across question types. Take it in-browser.",
+     [("Generate Test", "pages/3_Generate_Test.py"), ("Take Test", "pages/4_Take_Test.py")]),
+    (c4, "4", "📊", "Analyze", "See topic-wise mastery, weak areas, score trends, and a predicted exam score.",
+     [("Analytics", "pages/5_Analytics.py")]),
+]
 
+for col, num, icon, title, desc, links in steps:
+    with col:
+        st.markdown(
+            f"""
+            <div class="sb-card">
+                <div class="sb-card-icon">{icon}</div>
+                <h4><span class="sb-step-num">{num}</span>{title}</h4>
+                <p>{desc}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        for label, target in links:
+            st.page_link(target, label=label, use_container_width=True)
+
+st.write("")
 st.divider()
 
 grade = profile["grade"]
@@ -65,8 +75,10 @@ else:
                 delta=f"{len(chapters)} chapter(s), {len(attempts)} test(s)",
                 delta_color="off",
             )
+            if avg is not None:
+                st.progress(min(avg / 100, 1.0))
 
-    st.divider()
+    st.write("")
     st.subheader("🗒️ Recent activity")
     rows = []
     for subj in subjects:
