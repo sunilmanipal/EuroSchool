@@ -1,0 +1,10 @@
+.env
+data/
+__pycache__/
+*.pyc
+venv/
+.streamlit/secrets.toml
+.claude/
+
+# Large source PDFs — not needed by the deployed app
+*.pdf
