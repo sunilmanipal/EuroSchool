@@ -10,9 +10,15 @@ page headers across the app.
 import streamlit as st
 
 
+def _html(markup):
+    """Strip leading whitespace from every line so Streamlit's Markdown
+    parser doesn't mistake indented HTML for a code block."""
+    return "\n".join(line.strip() for line in markup.strip().splitlines())
+
+
 def inject_css():
     st.markdown(
-        """
+        _html("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -190,7 +196,7 @@ def inject_css():
             border: 1px solid #ECEDF6;
         }
         </style>
-        """,
+        """),
         unsafe_allow_html=True,
     )
 
@@ -199,13 +205,13 @@ def render_hero(title, subtitle, badge=None):
     """Render a large gradient hero banner used on the home page and login screen."""
     badge_html = f'<div class="sb-badge">{badge}</div>' if badge else ""
     st.markdown(
-        f"""
+        _html(f"""
         <div class="sb-hero">
             {badge_html}
             <div class="sb-hero-title">{title}</div>
             <p class="sb-hero-subtitle">{subtitle}</p>
         </div>
-        """,
+        """),
         unsafe_allow_html=True,
     )
 
@@ -214,11 +220,23 @@ def render_page_header(title, subtitle=""):
     """Render a compact gradient-text page header used on each tool page."""
     subtitle_html = f"<p>{subtitle}</p>" if subtitle else ""
     st.markdown(
-        f"""
+        _html(f"""
         <div class="sb-page-header">
             <h1>{title}</h1>
             {subtitle_html}
         </div>
-        """,
+        """),
+        unsafe_allow_html=True,
+    )
+
+
+def hide_sidebar_nav():
+    """Hide the auto-generated multipage navigation list in the sidebar.
+
+    Used on the login / profile-picker screens so users aren't shown links
+    to pages they can't access yet.
+    """
+    st.markdown(
+        "<style>[data-testid='stSidebarNav'] { display: none; }</style>",
         unsafe_allow_html=True,
     )

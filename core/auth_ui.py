@@ -3,7 +3,7 @@ import streamlit as st
 
 from core import db
 from core.auth import APP_PASSWORD, GRADES
-from core.ui import inject_css, render_hero
+from core.ui import _html, hide_sidebar_nav, inject_css, render_hero
 
 
 def require_login():
@@ -15,10 +15,12 @@ def require_login():
     inject_css()
 
     if not st.session_state.get("authenticated"):
+        hide_sidebar_nav()
         _show_login()
         st.stop()
 
     if not st.session_state.get("profile"):
+        hide_sidebar_nav()
         _show_profile_picker()
         st.stop()
 
@@ -71,13 +73,13 @@ def _show_profile_picker():
         for i, p in enumerate(profiles):
             with cols[i % 4]:
                 st.markdown(
-                    f"""
+                    _html(f"""
                     <div class="sb-card" style="text-align:center;">
                         <div class="sb-card-icon">🧑‍🎓</div>
                         <h4 style="margin-bottom:0;">{p['name']}</h4>
                         <p>Grade {p['grade']}</p>
                     </div>
-                    """,
+                    """),
                     unsafe_allow_html=True,
                 )
                 st.write("")

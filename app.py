@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 from core import db
 from core.auth_ui import require_login
-from core.ui import inject_css, render_hero
+from core.ui import _html, inject_css, render_hero
 
 load_dotenv()
 db.init_db()
@@ -37,13 +37,13 @@ steps = [
 for col, num, icon, title, desc, links in steps:
     with col:
         st.markdown(
-            f"""
+            _html(f"""
             <div class="sb-card">
                 <div class="sb-card-icon">{icon}</div>
                 <h4><span class="sb-step-num">{num}</span>{title}</h4>
                 <p>{desc}</p>
             </div>
-            """,
+            """),
             unsafe_allow_html=True,
         )
         st.write("")
