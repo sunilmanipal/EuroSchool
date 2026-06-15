@@ -307,7 +307,13 @@ def generate_lesson(subject, chapter_name, summary, topics):
         "step-by-step solutions (as strings)\n"
         "- \"common_mistakes\": a list of 2-3 common mistakes students make and how to avoid "
         "them\n"
-        "- \"quick_check\": a list of 3 short self-check questions, each an object with:\n"
+        "- \"quick_check\": a list of AT LEAST 8 self-check questions (more if the "
+        "sub-topic has many distinct question types in the textbook — e.g. if the "
+        "exercises cover sign rules, properties, AND word problems for this sub-topic, "
+        "include several of EACH kind so the student gets thorough practice on every "
+        "type of question found in the textbook for this sub-topic, not just one). "
+        "Vary the numbers/wording so no two quick-check questions are near-duplicates. "
+        "Each quick_check item is an object with:\n"
         "    - \"question\": the question text (string)\n"
         "    - \"options\": a list of exactly 4 strings (multiple-choice answer choices, "
         "without A/B/C/D labels)\n"
@@ -317,7 +323,8 @@ def generate_lesson(subject, chapter_name, summary, topics):
         "(string, do NOT reveal the answer)\n"
         "    - \"explanation\": a full step-by-step solution shown if the student gets it "
         "wrong twice (string)\n"
-        "  so the student can test themselves before the real test\n\n"
+        "  so the student can test themselves on the full range of question styles before "
+        "the real test\n\n"
         'Return JSON: {"topics": [ {...}, ... ]}'
     )
 
