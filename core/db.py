@@ -110,9 +110,16 @@ def get_or_create_subject(name):
     if row:
         conn.close()
         return row["id"]
-    cur = conn.execute("INSERT INTO subjects (name) VALUES (?)", (name,))
-    conn.commit()
-    sid = cur.lastrowid
+    try:
+        cur = conn.execute("INSERT INTO subjects (name) VALUES (?)", (name,))
+        conn.commit()
+        sid = cur.lastrowid
+    except sqlite3.IntegrityError:
+        # Another concurrent request inserted this subject between our SELECT
+        # and INSERT (e.g. two Streamlit sessions both running init_db() on
+        # startup) - fall back to the row that won the race.
+        row = conn.execute("SELECT id FROM subjects WHERE name = ?", (name,)).fetchone()
+        sid = row["id"]
     conn.close()
     return sid
 
