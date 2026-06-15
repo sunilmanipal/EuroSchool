@@ -4,7 +4,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
-from core import ai_engine, db
+from core import ai_engine, db, question_bank
 from core.auth_ui import require_login
 from core.ui import render_page_header
 
@@ -104,6 +104,8 @@ if topic_performance:
         totals[t][1] += r["max_marks"]
     topic_mastery = {t: round(100 * aw / mx, 1) for t, (aw, mx) in totals.items() if mx}
 
+progress = db.get_quick_check_progress(profile["id"], chapter["id"])
+
 weak_topics = [t for t, m in topic_mastery.items() if m < 60]
 if weak_topics:
     st.warning(
@@ -148,12 +150,15 @@ for t in lesson.get("topics", []):
             "we'll walk you through the full solution step by step (and you can "
             "have it read aloud)."
         )
+        solved_count = 0
+        total_qc = len(quick_check)
         for j, qc in enumerate(quick_check):
             qkey = f"qc_{chapter['id']}_{topic_name}_{j}"
             attempts_key = f"{qkey}_attempts"
             solved_key = f"{qkey}_solved"
             st.session_state.setdefault(attempts_key, 0)
-            st.session_state.setdefault(solved_key, False)
+            if solved_key not in st.session_state:
+                st.session_state[solved_key] = progress.get((topic_name, j), False)
 
             with st.container(border=True):
                 st.write(f"**{j+1}. {qc.get('question', '')}**")
@@ -168,6 +173,7 @@ for t in lesson.get("topics", []):
                     given = str(choice).strip().lower() if choice is not None else ""
                     if given and given == correct:
                         st.session_state[solved_key] = True
+                        db.set_quick_check_solved(profile["id"], chapter["id"], topic_name, j, True)
                     else:
                         st.session_state[solved_key] = False
                         st.session_state[attempts_key] += 1
@@ -185,6 +191,72 @@ for t in lesson.get("topics", []):
                     st.write(qc.get("explanation", ""))
                     st.caption(f"Correct answer: {qc.get('answer', '')}")
                     speak_button(qc.get("explanation", ""), key=f"{qkey}_exp_full")
+
+            if st.session_state[solved_key]:
+                solved_count += 1
+
+        if total_qc > 0:
+            st.progress(
+                solved_count / total_qc,
+                text=f"Quick-check progress: {solved_count}/{total_qc} solved",
+            )
+
+            if solved_count == total_qc:
+                st.success(f"🎉 You've completed all {total_qc} quick-checks for '{topic_name}'!")
+
+                past_attempts = db.get_topic_assessment_attempts(profile["id"], chapter["id"], topic_name)
+                if past_attempts:
+                    latest = past_attempts[0]
+                    st.info(
+                        f"📊 Last assessment score for this exercise: "
+                        f"{latest['total_score']:.1f}/{latest['max_score']:.0f} "
+                        f"({latest['percentage']}%)"
+                    )
+
+                if st.button("🎯 Take Assessment for this exercise", key=f"assess_{chapter['id']}_{topic_name}"):
+                    default_title = f"{chapter['name']} — {topic_name} — Exercise Assessment"
+                    paper = None
+                    used_offline = False
+                    with st.spinner("Creating your exercise assessment..."):
+                        try:
+                            paper = ai_engine.generate_paper(
+                                subject=subj_choice,
+                                chapter_name=chapter["name"],
+                                summary=analysis.get("summary", ""),
+                                topics=[topic_name],
+                                sample_question_styles=analysis.get("sample_question_styles", []),
+                                num_questions=8,
+                                difficulty="medium",
+                            )
+                        except Exception:
+                            if question_bank.chapter_supported(chapter["name"]):
+                                paper = question_bank.generate_offline_paper(
+                                    chapter_name=chapter["name"],
+                                    num_questions=8,
+                                    focus_topics=[topic_name],
+                                    title=default_title,
+                                )
+                                used_offline = True
+                            else:
+                                st.error(
+                                    "Couldn't generate an assessment with AI right now (the "
+                                    "OpenAI API key may be out of quota), and there's no "
+                                    "offline question bank for this chapter yet. Please try "
+                                    "again once AI access is restored."
+                                )
+
+                    if paper:
+                        paper.setdefault("title", default_title)
+                        paper_id = db.save_paper(chapter["id"], paper["title"], paper["questions"], topic_name=topic_name)
+                        st.session_state["active_paper_id"] = paper_id
+                        st.session_state["active_chapter_id"] = chapter["id"]
+                        st.success(f"✅ Created assessment: **{paper['title']}**")
+                        if used_offline:
+                            st.info(
+                                "ℹ️ Created using the **offline question bank** (AI "
+                                "generation is currently unavailable)."
+                            )
+                        st.page_link("pages/4_Take_Test.py", label="✍️ Go to Take Test to attempt this assessment", icon="✍️")
 
     deep_dive = t.get("deep_dive")
     if deep_dive:

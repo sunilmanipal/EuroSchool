@@ -66,6 +66,17 @@ CREATE TABLE IF NOT EXISTS answer_records (
     skill_category TEXT,
     FOREIGN KEY (attempt_id) REFERENCES attempts(id)
 );
+
+CREATE TABLE IF NOT EXISTS quick_check_progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL,
+    chapter_id INTEGER NOT NULL,
+    topic TEXT NOT NULL,
+    q_index INTEGER NOT NULL,
+    solved INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    UNIQUE(profile_id, chapter_id, topic, q_index)
+);
 """
 
 # Columns added after the initial release — applied via ALTER TABLE for
@@ -74,6 +85,8 @@ MIGRATIONS = [
     ("answer_records", "skill_category", "TEXT"),
     ("chapters", "lesson_json", "TEXT"),
     ("chapters", "grade", "INTEGER NOT NULL DEFAULT 7"),
+    ("papers", "topic_name", "TEXT"),
+    ("attempts", "profile_id", "INTEGER"),
 ]
 
 
@@ -212,11 +225,12 @@ def get_chapter(chapter_id):
 
 
 # ------------------------------------------------------------------ papers
-def save_paper(chapter_id, title, questions):
+def save_paper(chapter_id, title, questions, topic_name=None):
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO papers (chapter_id, title, questions_json, created_at) VALUES (?, ?, ?, ?)",
-        (chapter_id, title, json.dumps(questions), now()),
+        "INSERT INTO papers (chapter_id, title, questions_json, created_at, topic_name) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (chapter_id, title, json.dumps(questions), now(), topic_name),
     )
     conn.commit()
     pid = cur.lastrowid
@@ -249,13 +263,13 @@ def list_papers(chapter_id=None):
 
 
 # ---------------------------------------------------------------- attempts
-def save_attempt(paper_id, total_score, max_score, records):
+def save_attempt(paper_id, total_score, max_score, records, profile_id=None):
     percentage = round(100 * total_score / max_score, 2) if max_score else 0.0
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO attempts (paper_id, total_score, max_score, percentage, created_at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (paper_id, total_score, max_score, percentage, now()),
+        "INSERT INTO attempts (paper_id, total_score, max_score, percentage, created_at, profile_id) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (paper_id, total_score, max_score, percentage, now(), profile_id),
     )
     attempt_id = cur.lastrowid
     for r in records:
@@ -348,5 +362,49 @@ def get_skill_category_performance(subject_id, grade=None):
         params.append(grade)
     query += " ORDER BY a.created_at"
     rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# ----------------------------------------------------- quick-check progress
+def set_quick_check_solved(profile_id, chapter_id, topic, q_index, solved=True):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO quick_check_progress "
+        "(profile_id, chapter_id, topic, q_index, solved, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(profile_id, chapter_id, topic, q_index) "
+        "DO UPDATE SET solved=excluded.solved, updated_at=excluded.updated_at",
+        (profile_id, chapter_id, topic, q_index, int(solved), now()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_quick_check_progress(profile_id, chapter_id):
+    """Returns {(topic, q_index): solved_bool} for this student/chapter."""
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT topic, q_index, solved FROM quick_check_progress "
+        "WHERE profile_id = ? AND chapter_id = ?",
+        (profile_id, chapter_id),
+    ).fetchall()
+    conn.close()
+    return {(r["topic"], r["q_index"]): bool(r["solved"]) for r in rows}
+
+
+def get_topic_assessment_attempts(profile_id, chapter_id, topic_name):
+    """Latest attempts (newest first) for this student's single-topic
+    'exercise assessment' papers on this chapter/topic."""
+    conn = get_conn()
+    rows = conn.execute(
+        """
+        SELECT a.* FROM attempts a
+        JOIN papers p ON p.id = a.paper_id
+        WHERE p.chapter_id = ? AND p.topic_name = ? AND a.profile_id = ?
+        ORDER BY a.created_at DESC
+        """,
+        (chapter_id, topic_name, profile_id),
+    ).fetchall()
     conn.close()
     return [dict(r) for r in rows]

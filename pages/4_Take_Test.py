@@ -31,7 +31,15 @@ if not chapters:
     st.stop()
 
 chapter_labels = [c["name"] for c in chapters]
-chap_idx = st.selectbox("Chapter / Topic", range(len(chapters)), format_func=lambda i: chapter_labels[i])
+default_chap_idx = 0
+active_chapter_id = st.session_state.get("active_chapter_id")
+if active_chapter_id:
+    for i, c in enumerate(chapters):
+        if c["id"] == active_chapter_id:
+            default_chap_idx = i
+chap_idx = st.selectbox(
+    "Chapter / Topic", range(len(chapters)), format_func=lambda i: chapter_labels[i], index=default_chap_idx
+)
 chapter = chapters[chap_idx]
 
 papers = db.list_papers(chapter["id"])
@@ -143,7 +151,7 @@ if submitted:
             }
         )
     progress.progress(1.0, text="Done!")
-    attempt_id = db.save_attempt(paper["id"], total_score, total_marks, records)
+    attempt_id = db.save_attempt(paper["id"], total_score, total_marks, records, profile_id=profile["id"])
     st.session_state[result_key] = (attempt_id, total_score, total_marks, records)
     progress.empty()
 
@@ -151,6 +159,13 @@ if result_key in st.session_state:
     attempt_id, total_score, total_marks, records = st.session_state[result_key]
     pct = round(100 * total_score / total_marks, 1) if total_marks else 0
     st.success(f"## Score: {total_score:.1f} / {total_marks}  ({pct}%)")
+
+    if paper.get("topic_name"):
+        st.info(
+            f"🎯 **Exercise Assessment Result for '{paper['topic_name']}': "
+            f"{total_score:.1f}/{total_marks} ({pct}%)**"
+        )
+        st.page_link("pages/2_Learn.py", label="🎓 Back to Learn", icon="🎓")
 
     needs_work = [r for r in records if r["awarded"] < r["max_marks"] - 1e-6]
     if needs_work:
