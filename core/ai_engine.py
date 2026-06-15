@@ -187,6 +187,21 @@ def generate_paper(subject, chapter_name, summary, topics, sample_question_style
         q.setdefault("options", [])
         q.setdefault("max_marks", 1)
         q.setdefault("skill_category", "")
+        if q.get("type") == "mcq":
+            options = q.get("options") or []
+            correct = q.get("correct_answer")
+            # Make sure the correct answer is always one of the options, and
+            # that there are at least 2 choices to pick from.
+            if correct and correct not in options:
+                options.append(correct)
+            if len(options) < 2:
+                # Not enough options for a real multiple-choice question —
+                # fall back to a short-answer question instead of rendering
+                # an MCQ with nothing to select.
+                q["type"] = "short"
+                q["options"] = []
+            else:
+                q["options"] = options
     return data
 
 
@@ -292,13 +307,21 @@ def generate_lesson(subject, chapter_name, summary, topics):
         "step-by-step solutions (as strings)\n"
         "- \"common_mistakes\": a list of 2-3 common mistakes students make and how to avoid "
         "them\n"
-        "- \"quick_check\": a list of 3 short self-check questions, each an object with "
-        "\"question\", \"answer\" and \"hint\" fields, so the student can test themselves "
-        "before the real test\n\n"
+        "- \"quick_check\": a list of 3 short self-check questions, each an object with:\n"
+        "    - \"question\": the question text (string)\n"
+        "    - \"options\": a list of exactly 4 strings (multiple-choice answer choices, "
+        "without A/B/C/D labels)\n"
+        "    - \"answer\": the correct choice (string) — must be an EXACT match to one of "
+        "the strings in \"options\"\n"
+        "    - \"hint\": a short hint shown if the student picks wrong the first time "
+        "(string, do NOT reveal the answer)\n"
+        "    - \"explanation\": a full step-by-step solution shown if the student gets it "
+        "wrong twice (string)\n"
+        "  so the student can test themselves before the real test\n\n"
         'Return JSON: {"topics": [ {...}, ... ]}'
     )
 
-    return _chat_json(
+    lesson = _chat_json(
         TEXT_MODEL,
         [
             {"role": "system", "content": "You are a patient, encouraging school teacher who explains concepts simply and clearly."},
@@ -306,6 +329,24 @@ def generate_lesson(subject, chapter_name, summary, topics):
         ],
         temperature=0.5,
     )
+
+    # Defensive cleanup: drop any quick-check item that doesn't have at least
+    # 2 multiple-choice options with the answer among them, so the "Quick
+    # check yourself" radio buttons on the Learn page always have something
+    # to select.
+    for topic in lesson.get("topics", []):
+        valid_checks = []
+        for qc in topic.get("quick_check", []):
+            options = qc.get("options") or []
+            answer = qc.get("answer")
+            if answer and answer not in options:
+                options.append(answer)
+            if len(options) >= 2:
+                qc["options"] = options
+                valid_checks.append(qc)
+        topic["quick_check"] = valid_checks
+
+    return lesson
 
 
 def tutor_chat(subject, chapter_name, summary, history, question):
