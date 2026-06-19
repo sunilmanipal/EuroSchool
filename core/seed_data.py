@@ -48,7 +48,8 @@ def _remove_stale_chapters():
             continue
         subject_id = row["id"]
         chap = conn.execute(
-            "SELECT id FROM chapters WHERE subject_id = ? AND name = ?", (subject_id, chapter_name)
+            "SELECT id FROM chapters WHERE subject_id = ? AND name = ? AND source_file = 'hand-authored'",
+            (subject_id, chapter_name),
         ).fetchone()
         if chap:
             chapter_id = chap["id"]

@@ -50,7 +50,17 @@ if not subjects:
     st.stop()
 
 subject_names = [s["name"] for s in subjects]
-subj_choice = st.selectbox("Subject", subject_names)
+
+# Auto-select the subject/chapter that was just uploaded if available
+last_chapter_id = st.session_state.get("last_chapter_id")
+default_subj_idx = 0
+if last_chapter_id:
+    for i, s in enumerate(subjects):
+        if any(c["id"] == last_chapter_id for c in db.list_chapters(s["id"], grade=grade)):
+            default_subj_idx = i
+            break
+
+subj_choice = st.selectbox("Subject", subject_names, index=default_subj_idx)
 subject_id = next(s["id"] for s in subjects if s["name"] == subj_choice)
 
 chapters = db.list_chapters(subject_id, grade=grade)
@@ -58,8 +68,15 @@ if not chapters:
     st.warning(f"No chapters uploaded yet for {subj_choice} (Grade {grade}).")
     st.stop()
 
+default_chap_idx = 0
+if last_chapter_id:
+    for i, c in enumerate(chapters):
+        if c["id"] == last_chapter_id:
+            default_chap_idx = i
+            break
+
 chapter_labels = [f"{c['name']} (uploaded {c['created_at'][:10]})" for c in chapters]
-chap_idx = st.selectbox("Chapter / Topic", range(len(chapters)), format_func=lambda i: chapter_labels[i])
+chap_idx = st.selectbox("Chapter / Topic", range(len(chapters)), format_func=lambda i: chapter_labels[i], index=default_chap_idx)
 chapter = chapters[chap_idx]
 analysis = json.loads(chapter["summary"])
 
