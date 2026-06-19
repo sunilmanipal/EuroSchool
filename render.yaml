@@ -2,23 +2,19 @@ services:
   - type: web
     name: studybuddy-exam-prep
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    disk:
+      name: studybuddy-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4o
       - key: OPENAI_VISION_MODEL
-        value: gpt-4o
-
-# NOTE on data persistence:
-# On the free plan, the filesystem is ephemeral — it resets on every deploy
-# and restart. The "Chapter 1 - Integers" lesson/paper are re-created
-# automatically on startup (see core/seed_data.py), but any NEW chapters,
-# papers, or test attempts will be lost on restart.
-#
-# To persist data across restarts, upgrade this service to a paid plan and
-# add a persistent disk in the Render dashboard (e.g. mount path /var/data),
-# then set an env var DB_PATH=/var/data/app.db.
+        value: gpt-4o-mini
+      - key: DB_PATH
+        value: /var/data/app.db

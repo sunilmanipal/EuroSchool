@@ -1,12 +1,11 @@
 import json
 
 import streamlit as st
-import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 from core import ai_engine, db, question_bank
 from core.auth_ui import require_login
-from core.ui import render_page_header
+from core.ui import _html, render_page_header
 
 load_dotenv()
 db.init_db()
@@ -19,27 +18,36 @@ render_page_header(
     "explanations, worked examples, common mistakes, and quick self-checks.",
 )
 
+# Inject a single global TTS helper — no iframes, so no auto-scroll side-effect.
+st.markdown(
+    _html("""
+    <script>
+    function sbSpeak(text) {
+        window.speechSynthesis.cancel();
+        var u = new SpeechSynthesisUtterance(text);
+        u.rate = 0.85;
+        window.speechSynthesis.speak(u);
+    }
+    </script>
+    """),
+    unsafe_allow_html=True,
+)
+
 
 def speak_button(text, key, label="🔊 Read this aloud"):
-    """Render a small button that uses the browser's built-in text-to-speech
-    (Web Speech API) to read `text` out loud, step by step."""
+    """Inline speak button — uses a global JS function, no iframe, no page scroll."""
     safe_text = json.dumps(text)
     safe_key = "".join(c if c.isalnum() else "_" for c in key)
-    components.html(
-        f"""
-        <button id="speak_{safe_key}" style="padding:6px 14px;border-radius:6px;
-        border:1px solid #ccc;background:#eef0fb;cursor:pointer;font-size:13px;">
-        {label}</button>
-        <script>
-        document.getElementById("speak_{safe_key}").onclick = function() {{
-            window.speechSynthesis.cancel();
-            var u = new SpeechSynthesisUtterance({safe_text});
-            u.rate = 0.85;
-            window.speechSynthesis.speak(u);
-        }};
-        </script>
-        """,
-        height=42,
+    st.markdown(
+        _html(f"""
+        <button onclick="sbSpeak({safe_text})"
+          style="padding:5px 14px;border-radius:8px;border:1px solid rgba(124,58,237,0.4);
+          background:rgba(124,58,237,0.12);color:#C4B5FD;cursor:pointer;font-size:13px;
+          font-weight:600;margin:4px 0;">
+          {label}
+        </button>
+        """),
+        unsafe_allow_html=True,
     )
 
 grade = profile["grade"]
