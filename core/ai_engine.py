@@ -7,15 +7,29 @@ from openai import OpenAI
 _client = None
 
 
+def _resolve_secret(key: str) -> str | None:
+    try:
+        import streamlit as st
+        v = st.secrets.get(key)
+        if v:
+            return v
+    except Exception:
+        pass
+    return os.environ.get(key)
+
+
 def client():
     global _client
     if _client is None:
-        _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        api_key = _resolve_secret("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY not set. Add it to Streamlit secrets or env.")
+        _client = OpenAI(api_key=api_key)
     return _client
 
 
-TEXT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
-VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", "gpt-4o")
+TEXT_MODEL = _resolve_secret("OPENAI_MODEL") or "gpt-4o"
+VISION_MODEL = _resolve_secret("OPENAI_VISION_MODEL") or "gpt-4o"
 
 CLASS_LEVEL = "Class 7 (CBSE/ICSE curriculum, Euro School Whitefield, Bengaluru)"
 
